@@ -1,4 +1,4 @@
-local AllowedPlaceIds = { 101640913672688, 12886143095, 17046374415, 16732694052, 84188796720288, 8304191830, 10450270085 }
+local AllowedPlaceIds = { 71132543521245, 101640913672688, 12886143095, 17046374415, 16732694052, 84188796720288, 8304191830, 10450270085 }
 local Games = {
 	["ALS"] = { 12886143095, 18583778121, 12900046592 },
 	["AnimeReborn"] = { 17046374415, 17895401292, 108408425375836, 114706988516358 },
@@ -36,7 +36,7 @@ local function LoadDirectScript(GameId)
 	if GameName then
 		local success, result = pcall(function()
 			return loadstring(
-				game:HttpGet("https://raw.githubusercontent.com/bitxnzy/scriptexec/main/Games/" .. GameName)
+				game:HttpGet("https://raw.githubusercontent.com/bitxnzy/mainexec/main/Games/" .. GameName .. ".lua")
 			)()
 		end)
 
@@ -169,7 +169,7 @@ local function LoadGame(GameId)
 		local success, result = pcall(function()
 
 			return loadstring(
-				game:HttpGet("https://raw.githubusercontent.com/bitxnzy/scriptexec/main/Games/" .. GameName)
+				game:HttpGet("https://raw.githubusercontent.com/bitxnzy/mainexec/main/Games/" .. GameName .. ".lua")
 			)()
 		end)
 
@@ -193,4 +193,3 @@ end
 
 
 LoadGame(game.PlaceId)
-
