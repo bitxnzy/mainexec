@@ -7,6 +7,7 @@ local Games = {
 	["AA"] = { 8304191830, 8349889591, 14229762361, 14918509670, 14229839966, 3183403065 },
 	["JJI"] = { 10450270085, 16379688837, 119359147980471, 78904562518018 , 3808223175, 16379684339 },
 	["AnimeGhosts"] = { 101640913672688 },
+	["AnimeSquadron"] = { 71132543521245, 91255392593879},
 }
 
 local function IsPlaceAllowed(PlaceId)
@@ -35,7 +36,7 @@ local function LoadDirectScript(GameId)
 	if GameName then
 		local success, result = pcall(function()
 			return loadstring(
-				game:HttpGet("https://raw.githubusercontent.com/TrilhaX/scriptexec/main/Games/" .. GameName)
+				game:HttpGet("https://raw.githubusercontent.com/bitxnzy/scriptexec/main/Games/" .. GameName)
 			)()
 		end)
 
@@ -168,7 +169,7 @@ local function LoadGame(GameId)
 		local success, result = pcall(function()
 
 			return loadstring(
-				game:HttpGet("https://raw.githubusercontent.com/TrilhaX/scriptexec/main/Games/" .. GameName)
+				game:HttpGet("https://raw.githubusercontent.com/bitxnzy/scriptexec/main/Games/" .. GameName)
 			)()
 		end)
 
