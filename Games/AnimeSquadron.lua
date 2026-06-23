@@ -1,1 +1,1796 @@
-Fa
+repeat
+    task.wait()
+until game:IsLoaded()
+task.wait(1)
+warn("[TEMPEST HUB] Loading Ui")
+task.wait()
+
+--Starting Script
+local MacLib =
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/TrilhaX/maclibTempestHubUI/main/maclib.lua"))()
+
+local isMobile = game:GetService("UserInputService").TouchEnabled
+local pcSize = UDim2.fromOffset(850, 650)
+local mobileSize = UDim2.fromOffset(650, 400)
+local currentSize = isMobile and mobileSize or pcSize
+
+local Window = MacLib:Window({
+    Title = "Tempest Hub",
+    Subtitle = "Anime Squadron",
+    Size = currentSize,
+    DragStyle = 1,
+    DisabledWindowControls = {},
+    ShowUserInfo = false,
+    Keybind = Enum.KeyCode.RightControl,
+    AcrylicBlur = true,
+})
+
+function findGuiRecursive(parent, targetName)
+    for _, child in ipairs(parent:GetChildren()) do
+        if child.Name == targetName then
+            return child
+        end
+        local found = findGuiRecursive(child, targetName)
+        if found then
+            return found
+        end
+    end
+    return nil
+end
+
+local globalSettings = {
+    UIBlurToggle = Window:GlobalSetting({
+        Name = "UI Blur",
+        Default = Window:GetAcrylicBlurState(),
+        Callback = function(bool)
+            Window:SetAcrylicBlurState(bool)
+            Window:Notify({
+                Title = Window.Settings.Title,
+                Description = (bool and "Enabled" or "Disabled") .. " UI Blur",
+                Lifetime = 5,
+            })
+        end,
+    }),
+    NotificationToggler = Window:GlobalSetting({
+        Name = "Notifications",
+        Default = Window:GetNotificationsState(),
+        Callback = function(bool)
+            Window:SetNotificationsState(bool)
+            Window:Notify({
+                Title = Window.Settings.Title,
+                Description = (bool and "Enabled" or "Disabled") .. " Notifications",
+                Lifetime = 5,
+            })
+        end,
+    }),
+    ShowUserInfo = Window:GlobalSetting({
+        Name = "Show User Info",
+        Default = Window:GetUserInfoState(),
+        Callback = function(bool)
+            Window:SetUserInfoState(false)
+            Window:Notify({
+                Title = Window.Settings.Title,
+                Description = (bool and "Showing" or "Redacted") .. " User Info",
+                Lifetime = 5,
+            })
+        end,
+    }),
+}
+warn("[TEMPEST HUB] Loading Function")
+warn("[TEMPEST HUB] Loading Toggles")
+warn("[TEMPEST HUB] Last Checking")
+
+local tabGroups = {
+    TabGroup1 = Window:TabGroup(),
+}
+
+-- UI Tabs
+local tabs = {
+    Main = tabGroups.TabGroup1:Tab({ Name = "Main", Image = "rbxassetid://10723407389" }),
+    AutoJoin = tabGroups.TabGroup1:Tab({ Name = "Auto Join", Image = "rbxassetid://10723407389" }),
+    Others = tabGroups.TabGroup1:Tab({ Name = "Others", Image = "rbxassetid://10723407389" }),
+    AutoPlay = tabGroups.TabGroup1:Tab({ Name = "Auto Play", Image = "rbxassetid://10723407389" }),
+    Webhook = tabGroups.TabGroup1:Tab({ Name = "Webhook", Image = "rbxassetid://10723407389" }),
+    Settings = tabGroups.TabGroup1:Tab({ Name = "Settings", Image = "rbxassetid://10734950309" }),
+}
+
+--UI Sections
+
+local sections = {
+    MainSection1 = tabs.Main:Section({ Side = "Left" }),
+    MainSection2 = tabs.Main:Section({ Side = "Right" }),
+    MainSection10 = tabs.AutoJoin:Section({ Side = "Left" }),
+    MainSection11 = tabs.AutoJoin:Section({ Side = "Right" }),
+    MainSection25 = tabs.Others:Section({ Side = "Left" }),
+    MainSection26 = tabs.Others:Section({ Side = "Right" }),
+    MainSection35 = tabs.AutoPlay:Section({ Side = "Left" }),
+    MainSection36 = tabs.AutoPlay:Section({ Side = "Right" }),
+    MainSection50 = tabs.Webhook:Section({ Side = "Left" }),
+    MainSection100 = tabs.Settings:Section({ Side = "Left" }),
+}
+
+--Global Locals
+local GuiService = game:GetService("GuiService")
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local originalSizes = {}
+local pcSize2 = Vector2.new(850, 650)
+local mobileSize2 = Vector2.new(650, 400)
+local speed = 1000
+local playerRemote = game:GetService("ReplicatedStorage").Remotes:FindFirstChild("Player") or
+    game:GetService("ReplicatedStorage").Remotes:FindFirstChild("Players")
+local Remote = playerRemote.get
+local PlayRemotes = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):FindFirstChild("Play")
+local selectedWorlds = {}
+local selectedDifficulties = {}
+local selectedChallenge
+local ChallengeOptions = {}
+local PlacePriority = {}
+local UpgradePriority = {}
+local SkillWave = {}
+
+local function GetEquippedUnits()
+    local Data = Remote:InvokeServer()
+
+    if not Data or not Data.characters then
+        return {}
+    end
+
+    local Units = {}
+
+    for _, Character in pairs(Data.characters) do
+        if Character.equipped then
+            table.insert(Units, Character.name)
+        end
+    end
+
+    table.sort(Units)
+
+    return Units
+end
+
+local EquippedUnits = GetEquippedUnits()
+local AutoPlace = false
+local AutoUpgrade = false
+local AutoSkill = false
+local CharacterRemotes =
+    game:GetService("ReplicatedStorage")
+    :WaitForChild("Remotes")
+    :WaitForChild("Characters")
+getgenv().urlwebhook = getgenv().urlwebhook or ""
+getgenv().discordUserID = getgenv().discordUserID or ""
+getgenv().webhook = getgenv().webhook or false
+getgenv().pingUser = getgenv().pingUser or false
+getgenv().autoDailyRewardsEnabled = false
+getgenv().autoBattlepassEnabled = false
+getgenv().autoClaimQuestsEnabled = false
+getgenv().autoUpgradePerksEnabled = false
+local selectedPerkToUpgrade = "Max Yen"
+local PerkOptions = {
+    "Max Yen",
+    "Yen Generation",
+    "Health"
+}
+
+-- Worlds
+local WorldOptions = {}
+
+for _, world in ipairs(game:GetService("ReplicatedStorage").Worlds:GetChildren()) do
+    table.insert(WorldOptions, world.Name)
+end
+
+table.sort(WorldOptions)
+
+-- Modes
+local ModeOptions = {
+    "Story",
+    "Squadron",
+    "Challenge",
+    "Raid"
+}
+
+-- Difficulties
+local DifficultyOptions = {
+    "Normal",
+    "Hard",
+    "Nightmare"
+}
+
+-- Acts
+local ActOptions = {
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "10",
+    "Infinite"
+}
+
+local selectedWorld = WorldOptions[1]
+local selectedMode = "Story"
+local selectedDifficulty = "Normal"
+local selectedAct = "1"
+local onlyFriends = false
+
+--Functions
+
+local function BuildPlaceOrder()
+    local Order = {}
+
+    for UnitName, Priority in pairs(PlacePriority) do
+        if Priority > 0 then
+            table.insert(Order, {
+                Name = UnitName,
+                Priority = Priority
+            })
+        end
+    end
+
+    table.sort(Order, function(a, b)
+        return a.Priority < b.Priority
+    end)
+
+    return Order
+end
+
+local function BuildUpgradeOrder()
+    local Order = {}
+
+    for UnitName, Priority in pairs(UpgradePriority) do
+        if Priority > 0 then
+            table.insert(Order, {
+                Name = UnitName,
+                Priority = Priority
+            })
+        end
+    end
+
+    table.sort(Order, function(a, b)
+        return a.Priority < b.Priority
+    end)
+
+    return Order
+end
+
+task.spawn(function()
+    while task.wait(1) do
+        if not AutoPlace then
+            continue
+        end
+
+        local SpawnRemote = CharacterRemotes:WaitForChild("spawn")
+        local PlaceOrder = BuildPlaceOrder()
+
+        for _, Unit in ipairs(PlaceOrder) do
+            local Success, Result = pcall(function()
+                return SpawnRemote:InvokeServer(Unit.Name)
+            end)
+        end
+    end
+end)
+
+task.spawn(function()
+    while task.wait(0.25) do
+        if not AutoUpgrade then
+            continue
+        end
+
+        local UpgradeRemote = game:GetService("ReplicatedStorage")
+            :WaitForChild("Remotes")
+            :WaitForChild("Characters")
+            :WaitForChild("upgrade")
+        local UpgradeOrder = BuildUpgradeOrder()
+
+        for _, Unit in ipairs(UpgradeOrder) do
+            local Success, Result = pcall(function()
+                return UpgradeRemote:InvokeServer(Unit.Name)
+            end)
+        end
+    end
+end)
+
+task.spawn(function()
+    while task.wait(1) do
+        if not AutoSkill then
+            continue
+        end
+
+        -- lógica da skill aqui
+    end
+end)
+
+function autoGetDailyRewards()
+    for i = 1, 7 do
+        local args = {
+            [1] = i
+        }
+
+        game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Daily_Rewards"):WaitForChild("claim")
+            :InvokeServer(unpack(args))
+    end
+end
+
+function autoGetDiscovery()
+    game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Characters"):WaitForChild(
+        "claim_all_index"):InvokeServer()
+end
+
+function autoGetBegginMissions()
+    local Data = Remote
+    if not Data or not Data.missions then
+        return
+    end
+
+    local ClaimRemote = game:GetService("ReplicatedStorage")
+        .Remotes["Beginner Missions"]
+        .claim
+
+    for page, missions in pairs(Data.missions) do
+        for missionName, missionData in pairs(missions) do
+            ClaimRemote:InvokeServer(missionName, page)
+            task.wait()
+        end
+    end
+end
+
+function autoGetBattlepass()
+    game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Battlepass"):WaitForChild("claim_all")
+        :InvokeServer()
+end
+
+function autoClaimQuests()
+    game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Quests"):WaitForChild("claim_all")
+        :InvokeServer()
+end
+
+function autoUpgradePerksFunction()
+    task.spawn(function()
+        while getgenv().autoUpgradePerksEnabled do
+            if selectedPerkToUpgrade == "Max Yen" then
+                local args = {
+                    [1] = "Yen_Max"
+                }
+
+                game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Perks"):WaitForChild(
+                    "upgrade"):InvokeServer(unpack(args))
+            elseif selectedPerkToUpgrade == "Yen Generation" then
+                local args = {
+                    [1] = "Yen_Generation"
+                }
+
+                game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Perks"):WaitForChild(
+                    "upgrade"):InvokeServer(unpack(args))
+            elseif selectedPerkToUpgrade == "Health" then
+                local args = {
+                    [1] = "Health"
+                }
+
+                game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Perks"):WaitForChild(
+                    "upgrade"):InvokeServer(unpack(args))
+            else
+                warn("[TEMPEST HUB] Invalid Perk Selected")
+            end
+            task.wait()
+        end
+    end)
+end
+
+function autoEquipBest()
+    game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Characters"):WaitForChild("equip_best")
+        :InvokeServer()
+    task.wait()
+end
+
+local function GetChallengeData()
+    local Challenges = PlayRemotes.get_challenges:InvokeServer()
+
+    for diff, challenge in pairs(Challenges) do
+        local rewardMatch = false
+
+        if challenge.rewards and selectedReward then
+            rewardMatch = challenge.rewards[selectedReward] ~= nil
+        end
+
+        if diff == selectedDifficulty
+            and challenge.world == selectedWorld
+            and challenge.act == selectedAct
+            and rewardMatch then
+            return challenge
+        end
+    end
+
+    return nil
+end
+
+function autoJoin()
+    local args
+    if selectedMode == "Challenge" then
+        local Challenge = GetChallengeData()
+
+        if not Challenge then
+            return
+        end
+
+        args = {
+            [1] = {
+                ["difficulty"] = selectedDifficulty,
+                ["boosted"] = true,
+                ["act"] = Challenge.act,
+                ["mode"] = "Challenge",
+                ["rewards"] = Challenge.rewards,
+                ["only_friends"] = onlyFriends,
+                ["world"] = Challenge.world
+            }
+        }
+    else
+        args = {
+            [1] = {
+                ["boosted"] = true,
+                ["act"] = selectedAct,
+                ["difficulty"] = selectedDifficulty,
+                ["mode"] = selectedMode,
+                ["only_friends"] = onlyFriends,
+                ["world"] = selectedWorld
+            }
+        }
+    end
+
+    PlayRemotes.create_room:InvokeServer(unpack(args))
+    task.wait(1)
+    PlayRemotes.start:InvokeServer()
+end
+
+function autoGameSpeed(speed)
+    local args = {
+        [1] = tonumber(speed)
+    }
+
+    game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Game"):WaitForChild("change_speed")
+        :InvokeServer(unpack(args))
+end
+
+function autoReplay()
+    local menuScreen = game:GetService("Players").LocalPlayer.PlayerGui:FindFirstChild("Menus")
+    if menuScreen then
+        local endScreen = menuScreen:FindFirstChild("EndScreen")
+        if endScreen and endScreen.Visible == true then
+            task.wait(3)
+            game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Game"):WaitForChild("replay")
+                :FireServer()
+        end
+    end
+end
+
+function autoNext()
+    local menuScreen = game:GetService("Players").LocalPlayer.PlayerGui:FindFirstChild("Menus")
+    if menuScreen then
+        local endScreen = menuScreen:FindFirstChild("EndScreen")
+        if endScreen and endScreen.Visible == true then
+            task.wait(3)
+            game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Game"):WaitForChild("next")
+                :FireServer()
+        end
+    end
+end
+
+function autoLeave()
+    local menuScreen = game:GetService("Players").LocalPlayer.PlayerGui:FindFirstChild("Menus")
+    if menuScreen then
+        local endScreen = menuScreen:FindFirstChild("EndScreen")
+        if endScreen and endScreen.Visible == true then
+            task.wait(3)
+            game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Game"):WaitForChild("leave")
+                :FireServer()
+        end
+    end
+end
+
+function autoUpgradeRandom()
+    local EquippedUnits = {}
+
+    local UpgradeRemote = game:GetService("ReplicatedStorage")
+        :WaitForChild("Remotes")
+        :WaitForChild("Characters")
+        :WaitForChild("upgrade")
+
+    local Profile = game:GetService("ReplicatedStorage")
+        .Remotes
+        .Players
+        .get
+        :InvokeServer()
+
+    for _, Unit in pairs(Profile.characters or {}) do
+        if Unit.equipped then
+            table.insert(EquippedUnits, Unit.name)
+        end
+    end
+
+    for _, UnitName in ipairs(EquippedUnits) do
+        UpgradeRemote:InvokeServer(UnitName)
+    end
+end
+
+function autoClaimLevelMilestones()
+    for i = 0, 1000, 5 do
+        local args = {
+            [1] = i
+        }
+
+        game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Level_Milestones"):WaitForChild(
+            "claim"):InvokeServer(unpack(args))
+        task.wait()
+    end
+end
+
+local function IsSelected(tbl, value)
+    if not tbl then
+        return false
+    end
+
+    if tbl[value] ~= nil then
+        return tbl[value]
+    end
+
+    for _, v in pairs(tbl) do
+        if tostring(v) == tostring(value) then
+            return true
+        end
+    end
+
+    return false
+end
+
+function autoUseTicket()
+    game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Bounties"):WaitForChild("use_ticket")
+        :InvokeServer()
+    task.wait()
+end
+
+local function GetMatchingBounty()
+    local Data = Remote:InvokeServer()
+
+    if not Data or not Data.bounties then
+        warn("[BOUNTY] No data")
+        return nil
+    end
+
+    for id, bounty in pairs(Data.bounties) do
+        if bounty.rewards then
+            for reward, amount in pairs(bounty.rewards) do
+                continue
+            end
+        end
+
+        if (next(selectedWorlds) == nil or IsSelected(selectedWorlds, bounty.world))
+            and (next(selectedDifficulties) == nil or IsSelected(selectedDifficulties, bounty.difficulty)) then
+            return {
+                Id = id,
+                Active = bounty.active,
+                World = bounty.world,
+                Difficulty = bounty.difficulty,
+                Enemy = bounty.enemy,
+                Required = bounty.required,
+                Progress = bounty.progress,
+                Rewards = bounty.rewards
+            }
+        end
+    end
+
+    return nil
+end
+
+function autoBountyMission()
+    local bounty = GetMatchingBounty()
+
+    if not bounty then
+        autoUseTicket()
+        return
+    end
+
+    if not bounty.Active then
+        game:GetService("ReplicatedStorage")
+            .Remotes
+            .Bounties
+            .accept
+            :InvokeServer(bounty.Id)
+    end
+end
+
+function autoPlayON()
+    local Button = game:GetService("Players").LocalPlayer.PlayerGui.Hotbar.BottomUI.Autoplay
+
+    local Red = Color3.fromRGB(255, 0, 0)
+
+    if Button.BackgroundColor3 == Red then
+        game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Characters"):WaitForChild("autoplay")
+            :InvokeServer()
+    end
+end
+
+local function autoLeaveBountyCompleted()
+    local menuScreen = game:GetService("Players").LocalPlayer.PlayerGui:FindFirstChild("Menus")
+
+    if not menuScreen then
+        return
+    end
+
+    local endScreen = menuScreen:FindFirstChild("EndScreen")
+
+    if not endScreen or not endScreen.Visible then
+        return
+    end
+
+    local Data = game:GetService("ReplicatedStorage")
+        .Remotes
+        .Player
+        .get
+        :InvokeServer()
+
+    if not Data or not Data.bounties then
+        return
+    end
+
+    for id, bounty in pairs(Data.bounties) do
+        if bounty.active then
+            if tonumber(bounty.progress or 0) >= tonumber(bounty.required or 0) then
+                game:GetService("ReplicatedStorage")
+                    .Remotes
+                    .Game
+                    .leave
+                    :FireServer()
+
+                return true
+            end
+        end
+    end
+
+    return false
+end
+
+local function PrintCurrentBountyMap()
+    local Data = game:GetService("ReplicatedStorage")
+        .Remotes
+        .Player
+        .get
+        :InvokeServer()
+
+    if not Data or not Data.bounties then
+        warn("[BOUNTY] No data")
+        return
+    end
+
+    for id, bounty in pairs(Data.bounties) do
+        if bounty.active then
+            return bounty.world
+        end
+    end
+
+    warn("[BOUNTY] No active bounty found")
+    return nil
+end
+
+function autoJoinMapBounty()
+    local bountyMap = PrintCurrentBountyMap()
+    if bountyMap then
+        local args = {
+            [1] = {
+                ["boosted"] = true,
+                ["act"] = 1,
+                ["difficulty"] = "Normal",
+                ["mode"] = "Story",
+                ["only_friends"] = true,
+                ["world"] = tostring(bountyMap)
+            }
+        }
+
+        PlayRemotes.create_room:InvokeServer(unpack(args))
+    end
+end
+
+local RewardOptions = {}
+local Items = game:GetService("ReplicatedStorage"):WaitForChild("Items")
+
+for _, item in ipairs(Items:GetChildren()) do
+    table.insert(RewardOptions, item.Name)
+end
+
+local Remotes = ReplicatedStorage:WaitForChild("Remotes")
+local TraitsFolder = Remotes:FindFirstChild("Traits")
+local RerollRemote = TraitsFolder and TraitsFolder:FindFirstChild("reroll") or nil
+local StatFolder = Remotes:FindFirstChild("Stat_Reroll")
+local StatRerollRemote = StatFolder and StatFolder:FindFirstChild("reroll") or nil
+
+local DB_Traits = require(ReplicatedStorage.Shared.Data.DB_Traits)
+local UnitOptions = {}
+local UnitUUIDs = {}
+local TraitOptions = {}
+local playerData = Remote:InvokeServer()
+
+if playerData and playerData.characters then
+    for uuid, charData in pairs(playerData.characters) do
+        local displayName = string.format("%s (Lvl %s)%s", charData.name, tostring(charData.level),
+            charData.equipped and " [E]" or "")
+        table.insert(UnitOptions, displayName)
+        UnitUUIDs[displayName] = uuid
+    end
+else
+    UnitOptions = { "Nenhum personagem encontrado" }
+end
+
+for traitName, _ in pairs(DB_Traits) do
+    if type(traitName) == "string" then
+        table.insert(TraitOptions, traitName)
+    end
+end
+
+local DB_Ranks = require(ReplicatedStorage.Shared.Data.DB_Ranks)
+local RankOptions = {}
+local allAttributesList = { "damage", "health", "speed", "defense", "range", "cooldown" }
+
+for rankName, _ in pairs(DB_Ranks) do
+    if type(rankName) == "string" then
+        table.insert(RankOptions, rankName)
+    end
+end
+
+--webhook shits
+local function BuildWebhookData()
+    local Player = Players.LocalPlayer
+
+    local Rewards = {}
+    local RewardsFrame = Player.PlayerGui.Menus.EndScreen.Rewards.ScrollingFrame
+    local result = game:GetService("Players").LocalPlayer.PlayerGui.Menus.EndScreen.Header1.TextLabel
+    if result:lower() == "victory" then
+        result = "Victory"
+    else
+        result = "Defeat"
+    end
+    for _, Reward in ipairs(RewardsFrame:GetChildren()) do
+        if Reward.Name ~= "UIListLayout" then
+            local ItemName = "Unknown"
+            local Quantity = 1
+
+            local ItemNameLabel = Reward:FindFirstChild("ItemName")
+            if ItemNameLabel and ItemNameLabel:IsA("TextLabel") then
+                ItemName = ItemNameLabel.Text
+            end
+
+            local QuantityLabel = Reward:FindFirstChild("Quantity")
+            if QuantityLabel and QuantityLabel:IsA("TextLabel") then
+                Quantity = tonumber(QuantityLabel.Text:gsub("[^%d]", "")) or 1
+            end
+
+            local IsShiny = false
+
+            local ShinyValue = Reward:FindFirstChild("Shiny", true)
+            if ShinyValue then
+                if ShinyValue:IsA("BoolValue") then
+                    IsShiny = ShinyValue.Value
+                elseif ShinyValue:IsA("GuiObject") then
+                    IsShiny = ShinyValue.Visible
+                end
+            end
+
+            local OwnedAmount = 0
+
+            if Profile.items and Profile.items[ItemName] then
+                OwnedAmount = Profile.items[ItemName]
+            elseif Profile.stats and Profile.stats[ItemName] then
+                OwnedAmount = Profile.stats[ItemName]
+            else
+                for _, Unit in pairs(Profile.characters or {}) do
+                    if Unit.name == ItemName then
+                        if IsShiny then
+                            if Unit.shiny then
+                                OwnedAmount += 1
+                            end
+                        else
+                            OwnedAmount += 1
+                        end
+                    end
+                end
+            end
+
+            table.insert(
+                Rewards,
+                string.format(
+                    "%s%s x%s [%s]",
+                    IsShiny and "[Shiny] " or "",
+                    ItemName,
+                    tostring(Quantity),
+                    tostring(OwnedAmount)
+                )
+            )
+        end
+    end
+
+    local RewardsText = #Rewards > 0
+        and table.concat(Rewards, "\n")
+        or "No rewards"
+
+    local Played = workspace.Game.Stats.Played.Value
+    local Won = workspace.Game.Stats.Won.Value
+
+    local Stats = Player.PlayerGui.Menus.EndScreen.Stats
+
+    local Worlds = workspace.World:GetChildren()
+    local MapName = Worlds[1] and Worlds[1].Name or "Unknown"
+
+    local Mode = tostring(Stats.Mode.Text)
+    local Difficulty = tostring(Stats.Difficulty.Text)
+    local Chapter = tostring(Stats.Chapter.Text:gsub("<.->", ""))
+
+    local Profile = game:GetService("ReplicatedStorage")
+        .Remotes
+        .Players
+        .get
+        :InvokeServer()
+
+    local Units = {}
+
+    for _, Unit in pairs(Profile.characters or {}) do
+        if Unit.equipped then
+            table.insert(
+                Units,
+                string.format(
+                    "[ %s ] = %s [ %s%% ]",
+                    tostring(Unit.level),
+                    tostring(Unit.name),
+                    tostring(Unit.potential)
+                )
+            )
+        end
+    end
+
+    local UnitsText =
+        #Units > 0
+        and table.concat(Units, "\n")
+        or "No equipped units"
+
+    local Content = ""
+
+    if getgenv().pingUser and tostring(getgenv().discordUserID) ~= "" then
+        Content = "<@" .. tostring(getgenv().discordUserID) .. ">"
+    end
+
+    local ActiveBounty = "No active bounty"
+
+    for id, bounty in pairs(Profile.bounties or {}) do
+        if bounty.active then
+            ActiveBounty = string.format(
+                "%s (%s)\nEnemy: %s\nProgress: %s/%s",
+                tostring(bounty.world),
+                tostring(bounty.difficulty),
+                tostring(bounty.enemy),
+                tostring(bounty.progress or 0),
+                tostring(bounty.required or 0)
+            )
+            break
+        end
+    end
+
+    return {
+        content = Content,
+        embeds = {
+            {
+                title = "Anime Squadron",
+
+                description =
+                    "**User:** ||" ..
+                    tostring(Player.DisplayName) ..
+                    " (" ..
+                    tostring(Player.Name) ..
+                    ")||\n" ..
+                    "**Level:** " ..
+                    tostring(Profile.stats.level),
+
+                color = 65280,
+
+                fields = {
+                    {
+                        name = "Player Stats",
+                        value =
+                            "\n💎 Gems: " .. tostring(Profile.stats.Gems) ..
+                            "\n🪙 Gold: " .. tostring(Profile.stats.Gold) ..
+                            "\n🎲 Reroll Cubes: " .. tostring(Profile.stats["Reroll Cubes"]) ..
+                            "\n✨ Trait Shards: " .. tostring(Profile.stats["Trait Shards"]) ..
+                            "\n🔷 Perfect Cubes: " .. tostring(Profile.stats["Perfect Cubes"]),
+
+                        inline = false
+                    },
+
+                    {
+                        name = "Rewards",
+                        value = RewardsText,
+                        inline = false
+                    },
+
+                    {
+                        name = "Current Bounty",
+                        value = ActiveBounty,
+                        inline = false
+                    },
+
+                    {
+                        name = "Units",
+                        value = UnitsText,
+                        inline = false
+                    },
+
+                    {
+                        name = "Match Result",
+                        value =
+                            "🗺️ Map: " .. tostring(MapName) ..
+                            "\n🎯 Mode: " .. tostring(Mode) ..
+                            "\n⚔️ Difficulty: " .. tostring(Difficulty) ..
+                            "\n📖 Chapter: " .. tostring(Chapter) ..
+                            "\n🎮 Played: " .. tostring(Played) ..
+                            "\n🏆 Won: " .. tostring(Won) ..
+                            "\nResult: " .. tostring(result),
+
+                        inline = false
+                    }
+                },
+
+                footer = {
+                    text = "Tempest Hub • " .. os.date("%d/%m/%Y %H:%M")
+                }
+            }
+        }
+    }
+end
+
+local function SendWebhookMessage()
+    if not getgenv().webhook then return end
+    if tostring(getgenv().urlwebhook) == "" then
+        warn("Webhook URL missing")
+        return
+    end
+    request({
+        Url = getgenv().urlwebhook,
+        Method = "POST",
+        Headers = { ["Content-Type"] = "application/json" },
+        Body =
+            HttpService:JSONEncode(BuildWebhookData())
+    })
+end
+
+--Game codes Function
+
+function codeFunction()
+    local Codes = {
+        "Tysm80kCCU!",
+        "Tysm60kCCU!",
+        "UPD0.5!",
+        "Eclipse!",
+        "LongMaintenance!",
+        "10MilVisits!",
+        "50kCCU!",
+        "EverythingIsPartOfMyPlan!",
+        "Yokoso!"
+    }
+    for i, v in pairs(Codes) do
+        local args = {
+            [1] = tostring(v)
+        }
+
+        game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Codes"):WaitForChild("use")
+            :InvokeServer(unpack(args))
+        task.wait()
+    end
+end
+
+--UI
+
+sections.MainSection1:Header({
+    Name = "Player",
+})
+
+sections.MainSection1:Toggle({
+    Name = "Auto Equip Best",
+    Default = false,
+    Callback = function(value)
+        autoEquipBest()
+    end,
+}, "autoEquipBestToggle")
+
+sections.MainSection1:Toggle({
+    Name = "Auto Get Daily Rewards",
+    Default = false,
+    Callback = function(value)
+        autoGetDailyRewards()
+    end,
+}, "autoGetDailyRewardsToggle")
+
+sections.MainSection1:Toggle({
+    Name = "Auto Get Discovery",
+    Default = false,
+    Callback = function(value)
+        autoGetDiscovery()
+    end,
+}, "autoGetDiscoveryToggle")
+
+sections.MainSection1:Toggle({
+    Name = "Auto Get Begginer Missions",
+    Default = false,
+    Callback = function(value)
+        autoGetBegginMissions()
+    end,
+}, "autoGetBegginMissionsToggle")
+
+sections.MainSection1:Toggle({
+    Name = "Auto Battlepass",
+    Default = false,
+    Callback = function(value)
+        getgenv().autoBattlepassEnabled = value
+
+        task.spawn(function()
+            while getgenv().autoBattlepassEnabled do
+                autoGetBattlepass()
+                task.wait(5)
+            end
+        end)
+    end,
+}, "AutoBattlepass")
+
+sections.MainSection1:Toggle({
+    Name = "Auto Claim Quests",
+    Default = false,
+    Callback = function(value)
+        getgenv().autoClaimQuestsEnabled = value
+
+        task.spawn(function()
+            while getgenv().autoClaimQuestsEnabled do
+                autoClaimQuests()
+                task.wait(5)
+            end
+        end)
+    end,
+}, "AutoClaimQuests")
+
+sections.MainSection1:Dropdown({
+    Name = "Select Perk",
+    Search = false,
+    Multi = false,
+    Required = true,
+    Options = PerkOptions,
+    Default = 1,
+    Callback = function(value)
+        selectedPerkToUpgrade = value
+    end,
+}, "SelectedPerk")
+
+sections.MainSection1:Toggle({
+    Name = "Auto Upgrade Perks",
+    Default = false,
+    Callback = function(value)
+        getgenv().autoUpgradePerksEnabled = value
+
+        if value then
+            autoUpgradePerksFunction()
+        end
+    end,
+}, "AutoUpgradePerks")
+
+sections.MainSection1:Dropdown({
+    Name = "Select Gamespeed",
+    Search = false,
+    Multi = false,
+    Required = true,
+    Options = { "2", "3" },
+    Default = 1,
+    Callback = function(value)
+        autoGameSpeed(value)
+    end,
+}, "autoGameSpeed")
+
+sections.MainSection1:Button({
+    Name = "Reedem Codes",
+    Callback = function()
+        codeFunction()
+    end,
+})
+
+sections.MainSection2:Toggle({
+    Name = "Auto Replay",
+    Default = false,
+    Callback = function(value)
+        getgenv().autoreplayEnabled = value
+
+        task.spawn(function()
+            while getgenv().autoreplayEnabled do
+                autoReplay()
+                task.wait()
+            end
+        end)
+    end,
+}, "autoReplay")
+
+sections.MainSection2:Toggle({
+    Name = "Auto Next",
+    Default = false,
+    Callback = function(value)
+        getgenv().autoNextEnabled = value
+
+        task.spawn(function()
+            while getgenv().autoNextEnabled do
+                autoNext()
+                task.wait()
+            end
+        end)
+    end,
+}, "autoNext")
+
+sections.MainSection2:Toggle({
+    Name = "Auto Leave",
+    Default = false,
+    Callback = function(value)
+        getgenv().autoLeaveEnabled = value
+
+        task.spawn(function()
+            while getgenv().autoLeaveEnabled do
+                autoLeave()
+                task.wait()
+            end
+        end)
+    end,
+}, "autoLeave")
+
+sections.MainSection2:Toggle({
+    Name = "Auto Play [IN GAME]",
+    Default = false,
+    Callback = function(value)
+        getgenv().autoPlayEnabled = value
+
+        task.spawn(function()
+            while getgenv().autoPlayEnabled do
+                autoPlayON()
+                task.wait()
+            end
+        end)
+    end,
+}, "autoPlayON")
+
+sections.MainSection2:Toggle({
+    Name = "Auto Upgrade [Random Units]",
+    Default = false,
+    Callback = function(value)
+        getgenv().autoUpgradeRandomEnabled = value
+
+        task.spawn(function()
+            while getgenv().autoUpgradeRandomEnabled do
+                autoUpgradeRandom()
+                task.wait()
+            end
+        end)
+    end,
+}, "autoUpgradeRandom")
+
+sections.MainSection10:Header({
+    Name = "Auto Join"
+})
+
+sections.MainSection10:Dropdown({
+    Name = "Select World",
+    Search = true,
+    Multi = false,
+    Required = true,
+    Options = WorldOptions,
+    Default = 1,
+    Callback = function(value)
+        selectedWorld = value
+    end,
+}, "SelectedWorld")
+
+sections.MainSection10:Dropdown({
+    Name = "Select Mode",
+    Search = false,
+    Multi = false,
+    Required = true,
+    Options = ModeOptions,
+    Default = 1,
+    Callback = function(value)
+        selectedMode = value
+    end,
+}, "SelectedMode")
+
+sections.MainSection10:Dropdown({
+    Name = "Select Difficulty",
+    Search = false,
+    Multi = false,
+    Required = true,
+    Options = DifficultyOptions,
+    Default = 1,
+    Callback = function(value)
+        selectedDifficulty = value
+    end,
+}, "SelectedDifficulty")
+
+sections.MainSection10:Dropdown({
+    Name = "Select Act",
+    Search = false,
+    Multi = false,
+    Required = true,
+    Options = ActOptions,
+    Default = 1,
+    Callback = function(value)
+        if value == "infinite" then
+            selectedAct = "infinite"
+        else
+            selectedAct = tonumber(value)
+        end
+    end,
+}, "SelectedAct")
+
+sections.MainSection10:Dropdown({
+    Name = "Select Rewards",
+    Search = true,
+    Multi = false,
+    Required = true,
+    Options = RewardOptions,
+    Default = 1,
+    Callback = function(value)
+        selectedReward = value
+    end,
+}, "SelectedRewards")
+
+sections.MainSection10:Toggle({
+    Name = "Only Friends",
+    Default = false,
+    Callback = function(value)
+        onlyFriends = value
+    end,
+}, "OnlyFriends")
+
+sections.MainSection10:Toggle({
+    Name = "Auto Join",
+    Default = false,
+    Callback = function(value)
+        getgenv().autoJoinEnabled = value
+
+        task.spawn(function()
+            while getgenv().autoJoinEnabled do
+                autoJoin()
+                task.wait()
+            end
+        end)
+    end,
+}, "AutoJoin")
+
+sections.MainSection11:Header({
+    Name = "Auto Bounty"
+})
+
+sections.MainSection11:Dropdown({
+    Name = "Select Worlds",
+    Search = true,
+    Multi = true,
+    Required = false,
+    Options = WorldOptions,
+
+    Callback = function(values)
+        selectedWorlds = values
+    end,
+}, "SelectedWorlds")
+
+sections.MainSection11:Dropdown({
+    Name = "Select Difficulties",
+    Search = false,
+    Multi = true,
+    Required = false,
+    Options = DifficultyOptions,
+
+    Callback = function(values)
+        selectedDifficulties = values
+    end,
+}, "SelectedDifficulties")
+
+sections.MainSection11:Toggle({
+    Name = "Auto Bounty",
+    Default = false,
+    Callback = function(value)
+        getgenv().autoBountyEnabled = value
+
+        task.spawn(function()
+            while getgenv().autoBountyEnabled do
+                autoBountyMission()
+                task.wait()
+            end
+        end)
+    end,
+}, "AutoBounty")
+
+sections.MainSection11:Toggle({
+    Name = "Auto Join [Bounty Map]",
+    Default = false,
+    Callback = function(value)
+        getgenv().autoJoinBountyEnabled = value
+
+        task.spawn(function()
+            while getgenv().autoJoinBountyEnabled do
+                autoJoinMapBounty()
+                task.wait()
+            end
+        end)
+    end,
+}, "AutoJoinBounty")
+
+sections.MainSection11:Toggle({
+    Name = "Auto Leave [Bounty Completed]",
+    Default = false,
+    Callback = function(value)
+        getgenv().autoLeaveBountyEnabled = value
+
+        task.spawn(function()
+            while getgenv().autoLeaveBountyEnabled do
+                autoLeaveBountyCompleted()
+                task.wait()
+            end
+        end)
+    end,
+}, "AutoLeaveBounty")
+
+local selectedUnitDisplayName = nil
+local selectedTraits = {}
+
+sections.MainSection25:Dropdown({
+    Name = "Select Unit",
+    Search = true,
+    Multi = false,
+    Required = true,
+    Options = UnitOptions,
+    Callback = function(value)
+        selectedUnitDisplayName = value
+    end,
+}, "SelectedUnitTrait")
+
+sections.MainSection25:Dropdown({
+    Name = "Select Target Traits",
+    Search = true,
+    Multi = true,
+    Required = false,
+    Options = TraitOptions,
+    Callback = function(values)
+        selectedTraits = values
+    end,
+}, "SelectedTraits")
+
+sections.MainSection25:Toggle({
+    Name = "Auto Reroll Trait",
+    Default = false,
+    Callback = function(value)
+        getgenv().autoRerollTrait = value
+
+        task.spawn(function()
+            while getgenv().autoRerollTrait do
+                if not selectedUnitDisplayName or not UnitUUIDs[selectedUnitDisplayName] then
+                    getgenv().autoRerollTrait = false
+                    break
+                end
+
+                local traitsSelecionadasCount = 0
+                for traitName, isSelected in pairs(selectedTraits) do
+                    if isSelected == true then
+                        traitsSelecionadasCount = traitsSelecionadasCount + 1
+                    end
+                end
+
+                if traitsSelecionadasCount == 0 then
+                    getgenv().autoRerollTrait = false
+                    break
+                end
+
+                local targetUUID = UnitUUIDs[selectedUnitDisplayName]
+                local currentData = Remote:InvokeServer()
+                local currentChar = currentData and currentData.characters and currentData.characters[targetUUID]
+
+                if currentChar then
+                    local currentTrait = currentChar.trait
+
+                    if currentTrait and selectedTraits[currentTrait] == true then
+                        getgenv().autoRerollTrait = false
+                        break
+                    end
+                end
+
+                RerollRemote:InvokeServer(targetUUID)
+                task.wait()
+            end
+        end)
+    end,
+}, "AutoRerollTrait")
+
+local selectedStatusUnit = nil
+local selectedAttribute = nil
+local selectedTargetRanks = {}
+
+sections.MainSection26:Dropdown({
+    Name = "Select Unit (Status)",
+    Search = true,
+    Multi = false,
+    Required = true,
+    Options = UnitOptions,
+    Callback = function(value)
+        selectedStatusUnit = value
+    end,
+}, "SelectedUnitStatus")
+
+sections.MainSection26:Dropdown({
+    Name = "Select Attribute to Roll",
+    Search = false,
+    Multi = false,
+    Required = true,
+    Options = { "All", "damage", "health", "speed", "defense", "range", "cooldown" },
+    Callback = function(value)
+        selectedAttribute = value
+    end,
+}, "SelectedAttribute")
+
+sections.MainSection26:Dropdown({
+    Name = "Select Target Ranks",
+    Search = true,
+    Multi = true,
+    Required = false,
+    Options = RankOptions,
+    Callback = function(values)
+        selectedTargetRanks = values
+    end,
+}, "SelectedTargetRanks")
+
+sections.MainSection26:Toggle({
+    Name = "Auto Reroll Status",
+    Default = false,
+    Callback = function(value)
+        getgenv().autoRerollStatus = value
+
+        task.spawn(function()
+            while getgenv().autoRerollStatus do
+                if not selectedStatusUnit or not UnitUUIDs[selectedStatusUnit] then
+                    warn("Selecione uma unidade válida!")
+                    getgenv().autoRerollStatus = false
+                    break
+                end
+
+                if not selectedAttribute then
+                    getgenv().autoRerollStatus = false
+                    break
+                end
+
+                local ranksSelecionadosCount = 0
+                for rankName, isSelected in pairs(selectedTargetRanks) do
+                    if isSelected == true then
+                        ranksSelecionadosCount = ranksSelecionadosCount + 1
+                    end
+                end
+
+                if ranksSelecionadosCount == 0 then
+                    getgenv().autoRerollStatus = false
+                    break
+                end
+
+                local targetUUID = UnitUUIDs[selectedStatusUnit]
+
+                local currentData = Remote:InvokeServer()
+                local currentChar = currentData and currentData.characters and currentData.characters[targetUUID]
+
+                if currentChar and currentChar.ranks then
+                    local deveParar = false
+                    local lockTable = {}
+
+                    if selectedAttribute == "All" then
+                        local todosStatusValidos = true
+
+                        for _, attr in ipairs(allAttributesList) do
+                            local currentRankValue = currentChar.ranks[attr]
+
+                            if currentRankValue and selectedTargetRanks[currentRankValue] == true then
+                                lockTable[attr] = true
+                            else
+                                todosStatusValidos = false
+                            end
+                        end
+
+                        deveParar = todosStatusValidos
+                    else
+                        local currentRankValue = currentChar.ranks[selectedAttribute]
+
+                        if currentRankValue and selectedTargetRanks[currentRankValue] == true then
+                            deveParar = true
+                        else
+                            for _, attr in ipairs(allAttributesList) do
+                                if attr ~= selectedAttribute then
+                                    lockTable[attr] = true
+                                end
+                            end
+                        end
+                    end
+
+                    if deveParar then
+                        getgenv().autoRerollStatus = false
+                        break
+                    end
+
+                    local args = {
+                        [1] = targetUUID,
+                        [2] = lockTable
+                    }
+                    StatRerollRemote:InvokeServer(unpack(args))
+                end
+
+                task.wait()
+            end
+        end)
+    end,
+}, "AutoRerollStatus")
+
+sections.MainSection35:Header({
+    Name = "Auto Place & Skill"
+})
+
+sections.MainSection35:Toggle({
+    Name = "Auto Place",
+    Default = false,
+    Callback = function(Value)
+        AutoPlace = Value
+    end,
+}, "AutoPlace")
+
+sections.MainSection35:Toggle({
+    Name = "Auto Skill",
+    Default = false,
+    Callback = function(Value)
+        AutoSkill = Value
+    end,
+}, "AutoSkill")
+
+for _, UnitName in ipairs(EquippedUnits) do
+
+    sections.MainSection35:Slider({
+        Name = UnitName .. " Place Priority",
+        Default = 0,
+        Minimum = 0,
+        Maximum = 6,
+        DisplayMethod = "Number",
+        Precision = 0,
+        Callback = function(Value)
+            PlacePriority[UnitName] = Value
+        end,
+    }, UnitName .. "_PlacePriority")
+
+    sections.MainSection35:Slider({
+        Name = UnitName .. " Skill Wave",
+        Default = 0,
+        Minimum = 0,
+        Maximum = 100,
+        DisplayMethod = "Number",
+        Precision = 0,
+        Callback = function(Value)
+            SkillWave[UnitName] = Value
+        end,
+    }, UnitName .. "_SkillWave")
+end
+
+sections.MainSection36:Header({
+    Name = "Auto Upgrade"
+})
+
+sections.MainSection36:Toggle({
+    Name = "Auto Upgrade",
+    Default = false,
+    Callback = function(Value)
+        AutoUpgrade = Value
+    end,
+}, "AutoUpgrade")
+
+for _, UnitName in ipairs(EquippedUnits) do
+    sections.MainSection36:Slider({
+        Name = UnitName .. " Upgrade Priority",
+        Default = 0,
+        Minimum = 0,
+        Maximum = 6,
+        DisplayMethod = "Number",
+        Precision = 0,
+        Callback = function(Value)
+            UpgradePriority[UnitName] = Value
+        end,
+    }, UnitName .. "_UpgradePriority")
+end
+
+sections.MainSection50:Input(
+    {
+        Name = "Webhook URL",
+        Placeholder = "Press enter after paste",
+        AcceptedCharacters = "All",
+        Callback = function(value)
+            getgenv().urlwebhook =
+                value
+        end,
+        onChanged = function(value) getgenv().urlwebhook = value end,
+    }, "WebhookURL")
+sections.MainSection50:Input(
+    {
+        Name = "Discord User ID",
+        Placeholder = "123456789012345678",
+        AcceptedCharacters = "Number",
+        Callback = function(value)
+            getgenv().discordUserID =
+                value
+        end,
+        onChanged = function(value) getgenv().discordUserID = value end,
+    }, "DiscordUserID")
+sections.MainSection50:Toggle({
+    Name = "Send Webhook when finish game",
+    Default = false,
+
+    Callback = function(value)
+        getgenv().webhook = value
+
+        if value then
+            task.spawn(function()
+                local Sent = false
+
+                while getgenv().webhook do
+                    task.wait(0.5)
+
+                    local Player = game:GetService("Players").LocalPlayer
+                    local Menus = Player.PlayerGui:FindFirstChild("Menus")
+
+                    if not Menus then
+                        continue
+                    end
+
+                    local EndScreen = Menus:FindFirstChild("EndScreen")
+
+                    if not EndScreen then
+                        continue
+                    end
+
+                    if EndScreen.Visible and not Sent then
+                        Sent = true
+                        task.wait(2)
+
+                        local Success, Error = pcall(function()
+                            SendWebhookMessage()
+                        end)
+
+                        if not Success then
+                            warn("[WEBHOOK ERROR]", Error)
+                        end
+                    elseif not EndScreen.Visible then
+                        Sent = false
+                    end
+                end
+            end)
+        end
+    end,
+}, "WebhookFinishGame")
+sections.MainSection50:Toggle(
+    { Name = "Ping user", Default = false, Callback = function(value) getgenv().pingUser = value end, }, "PingUser")
+sections.MainSection50:Button({
+    Name = "Test Webhook",
+    Callback = function()
+        if getgenv().urlwebhook == "" then
+            warn("Webhook URL missing")
+            return
+        end
+
+        local HttpService = game:GetService("HttpService")
+
+        local content = ""
+
+        if getgenv().pingUser and getgenv().discordUserID ~= "" then
+            content = "<@" .. tostring(getgenv().discordUserID) .. ">"
+        end
+
+        request({
+            Url = getgenv().urlwebhook,
+            Method = "POST",
+            Headers = {
+                ["Content-Type"] = "application/json"
+            },
+            Body = HttpService:JSONEncode({
+                content = content,
+
+                embeds = {
+                    {
+                        title = "Webhook Test",
+
+                        description =
+                            "User: ||" .. tostring(game.Players.LocalPlayer.Name) .. "||\n" ..
+                            "UserId: ||" .. tostring(game.Players.LocalPlayer.UserId) .. "||",
+
+                        color = 65280
+                    }
+                }
+            })
+        })
+    end,
+})
+
+--UI IMPORTANT THINGS
+MacLib:SetFolder("Maclib")
+
+sections.MainSection100:Toggle({
+    Name = "Hide Player Info",
+    Default = false,
+    Callback = function(value)
+        MacLib:HidePlayer(value)
+    end,
+}, "HideInfoPlayerToggle")
+
+sections.MainSection100:Toggle({
+    Name = "Hide UI when Execute",
+    Default = false,
+    Callback = function(value)
+        MacLib:HideUI(value)
+    end,
+}, "HideUiWhenExecuteToggle")
+
+sections.MainSection100:Toggle({
+    Name = "Low cpu usage",
+    Default = false,
+    Callback = function(value)
+        MacLib:lowCpuUsage(value)
+    end,
+}, "LowCpuUsageToggle")
+
+sections.MainSection100:Toggle({
+    Name = "FPS Boost",
+    Default = false,
+    Callback = function(value)
+        MacLib:FPSBoost(value)
+    end,
+}, "FPSBoostToggle")
+
+sections.MainSection100:Slider({
+    Name = "Change UI Size",
+    Default = 0.8,
+    Minimum = 0.5,
+    Maximum = 1.5,
+    Increment = 0.05,
+    DisplayMethod = "Round",
+    Precision = 1,
+    Callback = function(scale)
+        MacLib:changeUISize(scale)
+    end,
+}, "changeUISize")
+
+Window.onUnloaded(function() end)
+tabs.Main:Select()
+
+local GameConfigName = "_ALS_"
+local player = game.Players.LocalPlayer
+local GuiService = game:GetService("GuiService")
+MacLib:SetFolder("Tempest Hub")
+MacLib:SetFolder("Tempest Hub/_AS_")
+MacLib:LoadConfig(player.Name .. GameConfigName)
+
+local function saveConfigBeforeGameLeave()
+    MacLib:SaveConfig(player.Name .. GameConfigName)
+end
+GuiService.NativeClose:Connect(saveConfigBeforeGameLeave)
+GuiService.MenuOpened:Connect(saveConfigBeforeGameLeave)
+player.OnTeleport:Connect(function()
+    saveConfigBeforeGameLeave()
+end)
+task.spawn(function()
+    while true do
+        saveConfigBeforeGameLeave()
+        task.wait()
+    end
+end)
+
+local LocalPlayer = game:GetService("Players").LocalPlayer
+for _, v in pairs(getconnections(LocalPlayer.Idled)) do
+    v:Disable()
+end
+--fixing
