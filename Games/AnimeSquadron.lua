@@ -88,7 +88,9 @@ local tabGroups = {
 local tabs = {
     Main = tabGroups.TabGroup1:Tab({ Name = "Main", Image = "rbxassetid://10723407389" }),
     AutoJoin = tabGroups.TabGroup1:Tab({ Name = "Auto Join", Image = "rbxassetid://10723407389" }),
+    Others = tabGroups.TabGroup1:Tab({ Name = "Others", Image = "rbxassetid://10723407389" }),
     AutoPlay = tabGroups.TabGroup1:Tab({ Name = "Auto Play", Image = "rbxassetid://10723407389" }),
+    Skill = tabGroups.TabGroup1:Tab({ Name = "Skill", Image = "rbxassetid://10723407389" }),
     Webhook = tabGroups.TabGroup1:Tab({ Name = "Webhook", Image = "rbxassetid://10723407389" }),
     Settings = tabGroups.TabGroup1:Tab({ Name = "Settings", Image = "rbxassetid://10734950309" }),
 }
@@ -100,7 +102,10 @@ local sections = {
     MainSection2 = tabs.Main:Section({ Side = "Right" }),
     MainSection10 = tabs.AutoJoin:Section({ Side = "Left" }),
     MainSection11 = tabs.AutoJoin:Section({ Side = "Right" }),
-    MainSection500 = tabs.AutoPlay:Section({ Side = "Left" }),
+    MainSection25 = tabs.Others:Section({ Side = "Left" }),
+    MainSection26 = tabs.Others:Section({ Side = "Right" }),
+    MainSection35 = tabs.AutoPlay:Section({ Side = "Left" }),
+    MainSection42 = tabs.Skill:Section({ Side = "Left" }),
     MainSection50 = tabs.Webhook:Section({ Side = "Left" }),
     MainSection100 = tabs.Settings:Section({ Side = "Left" }),
 }
@@ -117,8 +122,9 @@ local originalSizes = {}
 local pcSize2 = Vector2.new(850, 650)
 local mobileSize2 = Vector2.new(650, 400)
 local speed = 1000
-local Remote = game:GetService("ReplicatedStorage").Remotes.Player.get
-local PlayRemotes = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Play")
+local playerRemote = game:GetService("ReplicatedStorage").Remotes:FindFirstChild("Player") or game:GetService("ReplicatedStorage").Remotes:FindFirstChild("Players") 
+local Remote = playerRemote.get
+local PlayRemotes = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):FindFirstChild("Play")
 local selectedWorlds = {}
 local selectedDifficulties = {}
 local selectedChallenge
@@ -444,9 +450,8 @@ local function GetMatchingBounty()
 
     for id, bounty in pairs(Data.bounties) do
         if bounty.rewards then
-            print("Rewards:")
             for reward, amount in pairs(bounty.rewards) do
-                print("   ", reward, amount)
+                continue
             end
         end
 
@@ -472,7 +477,6 @@ function autoBountyMission()
     local bounty = GetMatchingBounty()
 
     if not bounty then
-        print("[BOUNTY] Using ticket...")
         autoUseTicket()
         return
     end
@@ -483,6 +487,16 @@ function autoBountyMission()
             .Bounties
             .accept
             :InvokeServer(bounty.Id)
+    end
+end
+
+function autoPlayON()
+    local Button = game:GetService("Players").LocalPlayer.PlayerGui.Hotbar.BottomUI.Autoplay
+
+    local Red = Color3.fromRGB(255, 0, 0)
+
+    if Button.BackgroundColor3 == Red then
+        game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Characters"):WaitForChild("autoplay"):InvokeServer()
     end
 end
 
@@ -533,6 +547,45 @@ for _, item in ipairs(Items:GetChildren()) do
     table.insert(RewardOptions, item.Name)
 end
 
+local Remotes = ReplicatedStorage:WaitForChild("Remotes")
+local TraitsFolder = Remotes:FindFirstChild("Traits")
+local RerollRemote = TraitsFolder and TraitsFolder:FindFirstChild("reroll") or nil
+local StatFolder = Remotes:FindFirstChild("Stat_Reroll")
+local StatRerollRemote = StatFolder and StatFolder:FindFirstChild("reroll") or nil
+
+local DB_Traits = require(ReplicatedStorage.Shared.Data.DB_Traits)
+local UnitOptions = {}
+local UnitUUIDs = {}
+local TraitOptions = {}
+local playerData = Remote:InvokeServer()
+
+if playerData and playerData.characters then
+    for uuid, charData in pairs(playerData.characters) do
+        local displayName = string.format("%s (Lvl %s)%s", charData.name, tostring(charData.level),
+            charData.equipped and " [E]" or "")
+        table.insert(UnitOptions, displayName)
+        UnitUUIDs[displayName] = uuid
+    end
+else
+    UnitOptions = { "Nenhum personagem encontrado" }
+end
+
+for traitName, _ in pairs(DB_Traits) do
+    if type(traitName) == "string" then
+        table.insert(TraitOptions, traitName)
+    end
+end
+
+local DB_Ranks = require(ReplicatedStorage.Shared.Data.DB_Ranks)
+local RankOptions = {}
+local allAttributesList = { "damage", "health", "speed", "defense", "range", "cooldown" }
+
+for rankName, _ in pairs(DB_Ranks) do
+    if type(rankName) == "string" then
+        table.insert(RankOptions, rankName)
+    end
+end
+
 --webhook shits
 local function BuildWebhookData()
     local Player = Players.LocalPlayer
@@ -576,10 +629,6 @@ local function BuildWebhookData()
         .Players
         .get
         :InvokeServer()
-
-    print("[WEBHOOK] Building webhook data...")
-    print("[WEBHOOK] User:", Player.Name)
-    print("[WEBHOOK] DisplayName:", Player.DisplayName)
 
     local Units = {}
 
@@ -725,7 +774,7 @@ function codeFunction()
         "EverythingIsPartOfMyPlan!",
         "Yokoso!"
     }
-    for i, v in pairs(codes) do
+    for i, v in pairs(Codes) do
         local args = {
             [1] = tostring(v)
         }
@@ -893,7 +942,22 @@ sections.MainSection2:Toggle({
 }, "autoLeave")
 
 sections.MainSection2:Toggle({
-    Name = "Auto Upgrade",
+    Name = "Auto Play [IN GAME]",
+    Default = false,
+    Callback = function(value)
+        getgenv().autoPlayEnabled = value
+
+        task.spawn(function()
+            while getgenv().autoPlayEnabled do
+                autoPlayON()
+                task.wait()
+            end
+        end)
+    end,
+}, "autoUpgrade")
+
+sections.MainSection2:Toggle({
+    Name = "Auto Upgrade [Random Units]",
     Default = false,
     Callback = function(value)
         getgenv().autoUpgradeEnabled = value
@@ -1056,6 +1120,201 @@ sections.MainSection11:Toggle({
     end,
 }, "AutoLeaveBounty")
 
+local selectedUnitDisplayName = nil
+local selectedTraits = {}
+
+sections.MainSection25:Dropdown({
+    Name = "Select Unit",
+    Search = true,
+    Multi = false,
+    Required = true,
+    Options = UnitOptions,
+    Callback = function(value)
+        selectedUnitDisplayName = value
+    end,
+}, "SelectedUnitTrait")
+
+sections.MainSection25:Dropdown({
+    Name = "Select Target Traits",
+    Search = true,
+    Multi = true,
+    Required = false,
+    Options = TraitOptions,
+    Callback = function(values)
+        selectedTraits = values
+    end,
+}, "SelectedTraits")
+
+sections.MainSection25:Toggle({
+    Name = "Auto Reroll Trait",
+    Default = false,
+    Callback = function(value)
+        getgenv().autoRerollTrait = value
+
+        task.spawn(function()
+            while getgenv().autoRerollTrait do
+                if not selectedUnitDisplayName or not UnitUUIDs[selectedUnitDisplayName] then
+                    getgenv().autoRerollTrait = false
+                    break
+                end
+
+                local traitsSelecionadasCount = 0
+                for traitName, isSelected in pairs(selectedTraits) do
+                    if isSelected == true then
+                        traitsSelecionadasCount = traitsSelecionadasCount + 1
+                    end
+                end
+
+                if traitsSelecionadasCount == 0 then
+                    getgenv().autoRerollTrait = false
+                    break
+                end
+
+                local targetUUID = UnitUUIDs[selectedUnitDisplayName]
+                local currentData = Remote:InvokeServer()
+                local currentChar = currentData and currentData.characters and currentData.characters[targetUUID]
+
+                if currentChar then
+                    local currentTrait = currentChar.trait
+
+                    if currentTrait and selectedTraits[currentTrait] == true then
+                        getgenv().autoRerollTrait = false
+                        break
+                    end
+                end
+
+                RerollRemote:InvokeServer(targetUUID)
+                task.wait()
+            end
+        end)
+    end,
+}, "AutoRerollTrait")
+
+local selectedStatusUnit = nil
+local selectedAttribute = nil
+local selectedTargetRanks = {}
+
+sections.MainSection26:Dropdown({
+    Name = "Select Unit (Status)",
+    Search = true,
+    Multi = false,
+    Required = true,
+    Options = UnitOptions,
+    Callback = function(value)
+        selectedStatusUnit = value
+    end,
+}, "SelectedUnitStatus")
+
+sections.MainSection26:Dropdown({
+    Name = "Select Attribute to Roll",
+    Search = false,
+    Multi = false,
+    Required = true,
+    Options = { "All", "damage", "health", "speed", "defense", "range", "cooldown" },
+    Callback = function(value)
+        selectedAttribute = value
+    end,
+}, "SelectedAttribute")
+
+sections.MainSection26:Dropdown({
+    Name = "Select Target Ranks",
+    Search = true,
+    Multi = true,
+    Required = false,
+    Options = RankOptions,
+    Callback = function(values)
+        selectedTargetRanks = values
+    end,
+}, "SelectedTargetRanks")
+
+sections.MainSection26:Toggle({
+    Name = "Auto Reroll Status",
+    Default = false,
+    Callback = function(value)
+        getgenv().autoRerollStatus = value
+
+        task.spawn(function()
+            while getgenv().autoRerollStatus do
+                if not selectedStatusUnit or not UnitUUIDs[selectedStatusUnit] then
+                    warn("Selecione uma unidade válida!")
+                    getgenv().autoRerollStatus = false
+                    break
+                end
+
+                if not selectedAttribute then
+                    warn("Selecione o atributo ou 'All'!")
+                    getgenv().autoRerollStatus = false
+                    break
+                end
+
+                local ranksSelecionadosCount = 0
+                for rankName, isSelected in pairs(selectedTargetRanks) do
+                    if isSelected == true then
+                        ranksSelecionadosCount = ranksSelecionadosCount + 1
+                    end
+                end
+
+                if ranksSelecionadosCount == 0 then
+                    warn("Selecione ao menos um Rank desejado!")
+                    getgenv().autoRerollStatus = false
+                    break
+                end
+
+                local targetUUID = UnitUUIDs[selectedStatusUnit]
+
+                local currentData = Remote:InvokeServer()
+                local currentChar = currentData and currentData.characters and currentData.characters[targetUUID]
+
+                if currentChar and currentChar.ranks then
+                    local deveParar = false
+                    local lockTable = {}
+
+                    if selectedAttribute == "All" then
+                        local todosStatusValidos = true
+
+                        for _, attr in ipairs(allAttributesList) do
+                            local currentRankValue = currentChar.ranks[attr]
+
+                            if currentRankValue and selectedTargetRanks[currentRankValue] == true then
+                                lockTable[attr] = true
+                            else
+                                todosStatusValidos = false
+                            end
+                        end
+
+                        deveParar = todosStatusValidos
+                    else
+                        local currentRankValue = currentChar.ranks[selectedAttribute]
+
+                        if currentRankValue and selectedTargetRanks[currentRankValue] == true then
+                            deveParar = true
+                        else
+                            for _, attr in ipairs(allAttributesList) do
+                                if attr ~= selectedAttribute then
+                                    lockTable[attr] = true
+                                end
+                            end
+                        end
+                    end
+
+                    if deveParar then
+                        getgenv().autoRerollStatus = false
+                        break
+                    end
+
+                    local args = {
+                        [1] = targetUUID,
+                        [2] = lockTable
+                    }
+                    StatRerollRemote:InvokeServer(unpack(args))
+                end
+
+                task.wait()
+            end
+        end)
+    end,
+}, "AutoRerollStatus")
+
 sections.MainSection50:Input(
     {
         Name = "Webhook URL",
@@ -1107,11 +1366,7 @@ sections.MainSection50:Toggle({
 
                     if EndScreen.Visible and not Sent then
                         Sent = true
-
-                        -- espera a UI terminar de atualizar
                         task.wait(2)
-
-                        print("[WEBHOOK] EndScreen detectada, enviando webhook...")
 
                         local Success, Error = pcall(function()
                             SendWebhookMessage()
